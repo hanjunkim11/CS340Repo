@@ -1,22 +1,18 @@
-/* Hanjun Kim and Christian McKinnon CS 340 Portfolio Project
-2/27/2024, Professor Curry
-
-Citation: The following code has been adapted from the OSU CS 340 Github node-starer-js Tuturial Steps 0, 3 and 5.
-
-https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%200%20-%20Setting%20Up%20Node.js
-https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%203%20-%20Integrating%20a%20Templating%20Engine%20(Handlebars)
-https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%205%20-%20Adding%20New%20Data
-*/
-
+// Hanjun Kim and Christian McKinnon CS 340 Portfolio Project
+// App.js, 2/27/2024
+// Citation: Code adapted from OSU 340 Github Step 0, Step 3, Step 5
+// https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%200%20-%20Setting%20Up%20Node.js
+// https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%203%20-%20Integrating%20a%20Templating%20Engine%20(Handlebars)
+// https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%205%20-%20Adding%20New%20Data
 
 /*
-    Streamathon Frontend and Backend: app.js is the driver where all .js and .hbs files are routed
+    SETUP
 */
 
 // Express
 var express = require('express');   // We are using the express library for the web server
 var app     = express();            // We need to instantiate an express object to interact with the server in our code
-PORT        = 7267;                 // Here we change this to 7267
+PORT        = 8003;                 // Here we change this to 8001
 
 // app.js - SETUP section
 app.use(express.json())
@@ -26,40 +22,176 @@ app.use(express.static('public'))
 // app.js
 const { engine } = require('express-handlebars');
 var exphbs = require('express-handlebars');     // Import express-handlebars
-app.engine('.hbs', engine({extname: ".hbs"}));  // Create an instance of the handlebars engine to process templates
+const { query } = require('express');
+app.engine('.hbs', exphbs.engine({
+    extname: ".hbs",
+    defaultLayout: "main"
+}));  // Create an instance of the handlebars engine to process templates
 app.set('view engine', '.hbs');                 // Tell express to use the handlebars engine whenever it encounters a *.hbs file.
 
 // Database
 var db = require('./database/db-connector')
 
+
+/*
+    QUERIES
+*/
+show_ratings_table = `
+SELECT rat.ratingID, usr.firstName AS FirstName, usr.lastName AS LastName, mov.title AS Movie, rat.userRating AS Rating, rat.ratingDate AS RatingDate FROM Ratings rat
+INNER JOIN Users usr ON rat.userID = usr.userID
+INNER JOIN Movies mov ON rat.movieID = mov.movieID
+GROUP BY rat.ratingID;
+`;
+
+show_movgen_table = `
+SELECT mov.title AS Title, gen.genreType AS Genres FROM Movies mov
+INNER JOIN MoviesGenresTable MGT ON mov.movieID = MGT.movieID
+INNER JOIN Genres gen ON MGT.genreID = gen.genreID
+GROUP BY Title;
+`;
+
+get_users = "SELECT userID, CONCAT(FirstName, ' ', lastName) AS fullName FROM Users;";
+get_movies = "SELECT movieID, title FROM Movies;";
+
+
+
+
+
 /*
     ROUTES
 */
 
-// ORIGINAL APP ROUTE TO INDEX
-app.get('/index', function(req, res) {
+  // ORIGINAL APP ROUTE TO INDEX
+app.get('/', function(req, res) {
     res.render('index');
 });
 
-// SELECT for Index
-app.get('/', function(req, res)
-    {
-        // Define our query
-        let query1 = `SELECT * FROM Movies;`;   
- 
+// ROUTES MOVIES Entity
+// Routes Section: SELECT MOVIE
+app.get('/movies', function(req, res)
+    {  
+        let query1 = `SELECT * FROM Movies;`;               // Define our query
 
         db.pool.query(query1, function(error, rows, fields){    // Execute the query
 
-            res.render('index', {data: rows});                  // Render the index.hbs file, and also send the renderer
+            res.render('movies', {data: rows});                  // Render the movies.hbs file, and also send the renderer
         })                                                      // an object where 'data' is equal to the 'rows' we
     });
+
+
+app.get('/ratings', function(req, res)
+{  
+    let ratings_query = show_ratings_table
+
+    // Run the main query
+    db.pool.query(ratings_query, function(error, rows, fields){
+        let ratings = rows;
+        
+        // Run the second query for a dropdown
+        db.pool.query(get_users, (error, rows, fields) => {
+            let users = rows;
+
+            // Run the second query for a dropdown
+            db.pool.query(get_movies, (error, rows, fields) => {
+                let movies = rows;
+                
+                return res.render('ratings', {data: ratings, users: users, movies, movies});
+        })
+    })
+})
+});
+
+
+
+
+// ROUTES section ADD RATING
+app.post('/add-rating-ajax', function(req, res) 
+{
+    // Capture the incoming data and parse it back to a JS object
+    let data = req.body;
+
+    // Create the query and run it on the database
+    query1 = `INSERT INTO Ratings (userID, movieID, userRating, ratingDate)
+    VALUES ('${data.userID}', '${data.movieID}', '${data.userRating}', '${data.ratingDate}');`
+    db.pool.query(query1, function(error, rows, fields){
+
+        // Check to see if there was an error
+        if (error) {
+
+            // Log the error to the terminal so we know what went wrong, and send the visitor an HTTP response 400 indicating it was a bad request.
+            console.log(error)
+            res.status(400).send(error);
+        }
+        else
+        {
+            res.sendStatus(204);
+        }
+    })
+});
+
+// DELETE RATING
+app.delete('/delete-rating-ajax/', function(req,res,next){
+    let data = req.body;
+    let ratingID = parseInt(data.ratingID);
+    let deleteRating = `DELETE FROM Ratings WHERE ratingID=?;`;
+
+          // Run the 1st query
+          db.pool.query(deleteRating, [ratingID], function(error, rows, fields){
+              if (error) {
+  
+              // Log the error to the terminal so we know what went wrong, and send the visitor an HTTP response 400 indicating it was a bad request.
+              console.log(error);
+              res.sendStatus(400);
+              }
+              else {res.sendStatus(204);}
+                  })
+              });
+
+// UPDATE RATING
+app.put('/put-rating-ajax', function(req,res,next){
+    let data = req.body;
+
+    // Ensure movieID is parsed to an integer
+    let ratingID = parseInt(data.ratingID);
+    let userRating = parseInt(data.userRating);
+    let ratingDate = data.ratingDate;
+
+    // Construct the SQL update query
+    let queryUpdateRating = `UPDATE Ratings SET userRating = ?, ratingDate = ? WHERE ratingID = ?;`;
+    let selectRating = `SELECT * FROM Ratings;`;
+  
+          // Run the 1st query
+          db.pool.query(queryUpdateRating, [userRating, ratingDate, ratingID], function(error, rows, fields){
+              if (error) {
+  
+              // Log the error to the terminal so we know what went wrong, and send the visitor an HTTP response 400 indicating it was a bad request.
+              console.log(error);
+              res.sendStatus(400);
+              }
+  
+              // If there was no error, we run our second query and return that data so we can use it to update the people's
+              // table on the front-end
+              else
+              {
+                  // Run the second query
+                  db.pool.query(selectRating, [ratingID], function(error, rows, fields) {
+  
+                      if (error) {
+                          console.log(error);
+                          res.sendStatus(400);
+                      } else {
+                          res.send(rows);
+                      }
+                  })
+              }
+  })});
 
 // Routes for the MoviesGenres Intersection Table
 // Routes Section: SELECT MoviesGenres
 app.get('/movgentable', function(req, res)
 {  
      // Define our query
-    let query1 = `SELECT * FROM MoviesGenresTable;`
+    let query1 = show_movgen_table
     
     
     db.pool.query(query1, function(error, rows, fields){    // Execute the query

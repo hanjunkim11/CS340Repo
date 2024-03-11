@@ -1,0 +1,158 @@
+<!--Hanjun Kim and Christian McKinnon, CS340 
+Code Adapted from CS340 Canvas Module Week 6: Exploration - Web Application Technology and Steps 3 and 7: CS 340 GitHub Guide
+
+Citations:
+https://canvas.oregonstate.edu/courses/1946034/pages/exploration-web-application-technology?module_item_id=23809327
+https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%203%20-%20Integrating%20a%20Templating%20Engine%20(Handlebars) 
+https://github.com/osu-cs340-ecampus/nodejs-starter-app/tree/main/Step%207%20-%20Dynamically%20Deleting%20Data -->
+
+<!-- genres.hbs for our Genres Entity: Create, Read, and Update Functionality -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>CS 340: Project Step 3</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name="robots" content="noindex,noarchive, nofollow" />
+    <!--<link rel='stylesheet' type='text/css' media='screen' href='main.css'>-->
+    <!--<script src='main.js'></script>-->
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <!--<link rel="manifest" href="site.webmanifest">-->
+</head>
+<body>
+     <!-- Header for Project Step 3 Draft (will update this for new assignments) -->
+    <header>
+        <h1>Streamathon: Project Step 5 for CS 340 (Team AceSync - Group 10)</h1>
+    </header>
+    <!--A navigation bar with 7 Entities and 1 Homepage-->
+    <nav>
+        <a href = "index">Home</a>
+        <a href = "movies">Movies</a>
+        <a href = "users">Users</a>
+        <a href = "subscriptions">Subscriptions</a>
+        <a href = "subtiers">Subscription Tiers</a>
+        <a href = "genres">Genres</a>
+        <a href = "ratings">Ratings</a>
+        <a href = "movgentable">MoviesGenresTable</a>
+    </nav>
+     <head>
+    <title>Genres</title>
+    <script language="JavaScript">
+		function showform(dowhat) {
+			// There are only 3 actions here as we do not have a separate "DELETE" form
+            // We don't show UPDATE on the main page
+            if (dowhat == "all") {
+                document.getElementById("browse").style.display = "block";
+                document.getElementById("insert").style.display = "block";
+                document.getElementById("update").style.display = "block";
+            } else if (dowhat == "insert") {
+                document.getElementById("browse").style.display = "none";
+                document.getElementById("insert").style.display = "block";
+                document.getElementById("update").style.display = "none";
+            } else if (dowhat == "update") {
+                document.getElementById("browse").style.display = "none";
+                document.getElementById("insert").style.display = "none";
+                document.getElementById("update").style.display = "block";
+            } else {
+                // Otherwise, we simply display options
+                document.getElementById("browse").style.display = "block";
+                document.getElementById("insert").style.display = "block";
+                document.getElementById("update").style.display = "none";
+            }
+        }
+    function newGenre() { showform('insert'); }
+    function updateGenre(newGenreID) { 
+        showform('all');
+        document.getElementById("update-genre-id").value = newGenreID;
+     }
+    function browseGenre() { showform ('browse'); }
+    function showAll() { showform ('all'); }
+</script>
+</head>
+<body onload="browseGenre()">
+
+    <h2>Genres Entity</h2>
+        <p> This entity, which represents the category each Movie falls into, allows a database  
+                administrator to ADD or UPDATE a Genre. We do not feel that it is appropriate to DELETE an 
+                existing Genre as they can, at any point, be updated to reflect changing trends in 
+                film and streaming.
+            </p>
+
+<!-- BROWSE / DELETE -->
+<div id="browse">
+<table border="1" cellpadding="2", id = "genre-table">
+  <tr>
+    <th colspan="3" style="text-align: center;">Genres</th>
+    </tr>
+    <tr>
+        {{#each data.[0]}}
+        <th>
+            {{@key}}
+        </th>
+        {{/each}}
+        <th>EDIT</th>
+  </tr>
+  {{#each data}}
+  <tr data-value = "{{this.[genreID]}}">
+
+   {{!-- Body section --}}
+        {{!-- For each row, print the genreID, genreType, and price in order --}}
+            <td>{{this.[genreID]}}</td>
+            <td>{{this.[genreType]}}</td>
+            <td><button class="updateGenreButton" onClick="updateGenre({{this.[genreID]}})">Edit</button></td>
+        </tr>
+        {{/each}}
+</table>
+<p>&nbsp;</p>
+{{!--<script src="./js/delete_user.js"></script> --}}
+
+</div> 
+<!-- INSERT Genre -->
+<div id="insert">
+    <legend><h2>Add Genre:</h2></legend>
+    <p> A form to add a new Genre to the database. (Nothing here can be NULL)</p> 
+    <form id="add-genre-form">
+        <fieldset>
+      <label for="input-genreType">Genre Type: </label>
+      <input type="text" name="input-genreType" id="input-genreType">
+      
+          <input class="btn" type="submit" id="addGenre" value="Add Genre" onClick="browseGenre()">
+          <input class="btn" type="button" value="Cancel" onClick="browseGenre()">
+    </fieldset>
+	</form> 
+{{!-- Embed our javascript to handle the DOM manipulation and AJAX request --}}
+<script src="./js/add_genre.js"></script>
+</div>
+<p>&nbsp;</p>
+
+<!-- UPDATE Genre -->
+<div id="update">
+  <legend><h2>Update Genre</h2></legend>
+  <p> A form to update an existing Genre in the database. Sometimes a genre can "change" or blend with others 
+    over time and so a user can make those changes with this form. The genreID is autopopulated
+    based on which "Edit" button is selected from the table above.</p>
+    <form id="update-genre-form-ajax">
+        
+          <input type="hidden" name="update-genre-id" id="update-genre-id"/>
+
+          <label for="input-update-genreType">Genre Type: </label>
+          <input type="text" name="input-update-genreType" id="input-update-genreType">
+          
+          <input class="btn" type="submit" id="UpdateSaveGenre" value="Update Genre" onClick="browseGenre()">
+          <input class="btn" type="button" value="Cancel" onClick="browseGenre()">
+          
+	</form>
+<script src="./js/update_genre.js"></script> 
+</div>
+<!-- Copyright of our team as footer -->
+<footer>
+    <p>
+        &copy; 2024 Hanjun Kim & Christian McKinnon (Team AceSync - Group 10)
+    </p>
+</footer>
+</body>
+</html>
